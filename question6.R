@@ -128,6 +128,7 @@ count_dates = function(string){
   for(x in 1:length(split_up[[1]])){
     sub_date_count = 0
     string_to_observe = split_up[[1]][x]
+    print(string_to_observe)
     # print(string_to_observe)
     for(y in 1:(nchar(string_to_observe) - 9)){
       sub_string_to_observe = substr(string_to_observe,y,(y+9)) # Patterns 1-3 have 10 chars
@@ -138,7 +139,7 @@ count_dates = function(string){
         # print("No Match!")
       }
     }
-    if(sub_date_count == 1){
+    if(sub_date_count == 1 & (nchar(string_to_observe) == 10)){
       total_date_count = total_date_count + 1
     }
   }
@@ -156,7 +157,7 @@ count_dates = function(string){
 # --------------------------- Test Cases --------------------------- 
 
 test_string = "12/31/2021/12/31/2021/31/12/2021 16 dec 2021 is the day that my 2021/12/07/12/2021birthday is at!2021/12/05 24/12/2021"
-count_dates(test_string) # 3
+count_dates(test_string) # 2
 
 test_string_2 = "12/41/10000"
 count_dates(test_string_2) # 0
@@ -165,7 +166,7 @@ test_string_3 = "12/41/3009"
 count_dates(test_string_3) # 0
 
 test_string_4 = "12/31/2021/12/31/2021/31/12/202116 dec 2021 is the day that my 2021/12/07/12/2021birthday is at!2021/12/05 24/12/2021"
-count_dates(test_string_4) # 2
+count_dates(test_string_4) # 1
 
 
 
