@@ -17,10 +17,10 @@ price_mat = matrix()
 
 for(x in 1:length(asset_list)){
   prices = get.hist.quote(instrument = asset_list[x], start_date, end_date,
-                 quote = c("AdjClose"),
-                 provider = c("yahoo"), method = NULL,
-                 origin = "1899-12-30", compression = "d",
-                 retclass = c("zoo"))
+                          quote = c("AdjClose"),
+                          provider = c("yahoo"), method = NULL,
+                          origin = "1899-12-30", compression = "d",
+                          retclass = c("zoo"))
   price_mat = cbind(price_mat,prices)
 }
 price_mat = price_mat[-1,]
@@ -39,17 +39,30 @@ portfolio_expected_return = t(as.matrix(asset_weights)) %*% as.matrix(mean)
 portfolio_variance = t(as.matrix(asset_weights)) %*% as.matrix(var(log_ret_zoo)) %*% as.matrix(asset_weights)
 portfolio_sd = sqrt(portfolio_variance)
 
-five_perc_var = round((initial_investment * (exp(portfolio_expected_return + (1.645 * portfolio_sd)) - 1)),2)
-five_perc_cvar = round((-initial_investment * ES(R = log_ret_zoo, p = 0.95, method="gaussian", weights = as.matrix(asset_weights), mu = mean, sigma = as.matrix(var(log_ret_zoo)))),2)
+# Parametric
+five_perc_var = round((-initial_investment * (exp(portfolio_expected_return + (1.645 * portfolio_sd)) - 1)),2)
+five_perc_cvar = round((initial_investment * ES(R = log_ret_zoo, p = 0.95, method="gaussian", weights = as.matrix(asset_weights), mu = mean, sigma = as.matrix(var(log_ret_zoo)))),2)
 print("As of 2016/12/31")
-print(paste("Portfolio 5% VaR: ", five_perc_var, sep="")) # 156.3
-print(paste("Portfolio 5% CVaR: ", five_perc_cvar, sep="")) # 181.11
-print("Assuming the normality of log returns distributions, an investor can lose the above amounts (or more) per day from an initial $10000 in this portfolio.")
+print(paste("Portfolio 5% Parametric VaR: ", five_perc_var, sep="")) # 156.3
+print(paste("Portfolio 5% Parametric CVaR: ", five_perc_cvar, sep="")) # 181.11
+print("Assuming the normality of log returns distributions, an investor has a 5% chance of losing the above amounts (or more) per day from an initial $10000 in this portfolio.")
 
+# Historical
+five_perc_var = round((-initial_investment * (exp(quantile(log_ret_zoo %*% as.matrix(asset_weights), 0.05)) - 1)),2)
+# I'm unable to get historical CVaR - function may be broken
+# five_perc_cvar = round((initial_investment * ES(R = log_ret_zoo, p = 0.95, method="gaussian", weights = as.matrix(asset_weights), mu = mean, sigma = as.matrix(var(log_ret_zoo)))),2)
+
+print("As of 2016/12/31")
+print(paste("Portfolio 5% Historical VaR: ", five_perc_var, sep="")) # 142.84
+# print(paste("Portfolio 5% Historical CVaR: ", five_perc_cvar, sep="")) 
+print("Assuming the normality of log returns distributions, an investor has a 5% chance of losing the above amounts (or more) per day from an initial $10000 in this portfolio.")
+
+# It appears that parametric VaR is greater in amplitude than historical VaR
 
 # Question 4c
 
 tangency_mat = matrix(ncol=length(asset_list))
+sharpe_mat = matrix(ncol = 2)
 
 for(x in 1:12){
   print(x)
@@ -68,12 +81,21 @@ for(x in 1:12){
     }
   }
   relevant_zoo = log_ret_zoo[(1:extent),]
+  
+  
   inv_cov = solve(as.matrix(var(relevant_zoo)))
   one_vec = rep(1,length(asset_list))
   top_mat = inv_cov %*% as.matrix(mean)
   bot_val = as.numeric(t(one_vec) %*% top_mat)
   t_vec = top_mat[,1]/bot_val
   tangency_mat = rbind(tangency_mat,t_vec)
+  
+  # optimized and unoptimized sharpe ratios
+
+  optimized_sharpe = (colMeans(relevant_zoo) %*% t_vec) / sqrt(t(t_vec) %*% var(relevant_zoo) %*% t_vec)
+  equal_weights = rep((1/length(asset_list)), length(asset_list))
+  unoptimized_sharpe = (colMeans(relevant_zoo) %*% equal_weights) / sqrt(t(equal_weights) %*% var(relevant_zoo) %*% equal_weights)
+  sharpe_mat = rbind(sharpe_mat, matrix(c(optimized_sharpe, unoptimized_sharpe),ncol=2))
 }
 
 tangency_mat = tangency_mat[-1,]
@@ -94,3 +116,22 @@ print("Each row refers to the optimized portfolio weights for the end of each mo
 # 10 -0.02128892 0.6548028 -0.35389800 -0.16815973  0.4035685 -0.1741392 0.6591145
 # 11  0.06378765 0.6408777 -0.27324302 -0.10060858  0.3590239 -0.1931171 0.5032794
 # 12  0.06904307 0.6474206 -0.28751613 -0.07518275  0.3589300 -0.1987111 0.4860164
+
+sharpe_mat = sharpe_mat[-1,]
+rownames(sharpe_mat) = c(1:12)
+colnames(sharpe_mat) = c("optimized", "unoptimized")
+print(sharpe_mat) 
+
+#      optimized  unoptimized
+# 1  -0.34960074 -0.109713212
+# 2  -0.10967343 -0.094659136
+# 3   0.00158699  0.020075148
+# 4   0.04496494  0.000161124
+# 5   0.05286521  0.016919705
+# 6   0.02743733  0.017700732
+# 7   0.03241234  0.042377021
+# 8   0.04469004  0.043017467
+# 9   0.02641821  0.039015648
+# 10  0.03240432  0.037531309
+# 11  0.08630164  0.053678750
+# 12  0.09517162  0.071259772
